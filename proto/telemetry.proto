@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package telemetry;
+
+message SensorData {
+  string sensor_id = 1;
+  double temperature = 2;
+  uint64 timestamp = 3;
+}

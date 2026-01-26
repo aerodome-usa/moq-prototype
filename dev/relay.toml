@@ -1,0 +1,17 @@
+# Local development relay configuration
+
+[log]
+level = "info"
+
+[server]
+listen = "[::]:4443"
+tls.generate = ["localhost"]
+
+[web.http]
+listen = "[::]:8080"
+
+[auth]
+public = ""
+
+[iroh]
+enabled = false
