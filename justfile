@@ -44,7 +44,7 @@ drone-demo:
     moq-relay dev/relay.toml &
     sleep 2
     echo "Starting drone with ID: $DRONE_ID"
-    echo "  Run 'just control $DRONE_ID' in another terminal to send commands."
+    echo "  Run 'just control' in another terminal to send commands."
     DRONE_ID=$DRONE_ID cargo run --bin drone
     wait
 
@@ -64,6 +64,6 @@ subscribe:
 drone *args:
     cargo run --bin drone {{ args }}
 
-# Connect the controller to a drone by ID
-control drone_id:
-    DRONE_ID={{ drone_id }} cargo run --bin controller
+# Start the controller (auto-discovers all drones)
+control:
+    cargo run --bin controller
