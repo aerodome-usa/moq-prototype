@@ -1,6 +1,9 @@
 use std::io::Result;
 
 fn main() -> Result<()> {
-    prost_build::compile_protos(&["proto/telemetry.proto"], &["proto/"])?;
+    prost_build::compile_protos(
+        &["proto/telemetry.proto", "proto/drone.proto"],
+        &["proto/"],
+    )?;
     Ok(())
 }
