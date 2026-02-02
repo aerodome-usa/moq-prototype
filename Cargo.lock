@@ -675,9 +675,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "futures",
  "moq-lite",
  "prost",
  "prost-build",
+ "rand",
  "tokio",
  "url",
  "uuid",

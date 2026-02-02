@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package drone;
+
+// Sent by the drone to report its current position.
+message DronePosition {
+  string drone_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double altitude_m = 4;
+  double heading_deg = 5;
+  double speed_mps = 6;
+  uint64 timestamp = 7;
+}
+
+// Sent by the controller to command a drone.
+message DroneCommand {
+  string drone_id = 1;
+  CommandType command = 2;
+  // Target position for GOTO commands.
+  double target_lat = 3;
+  double target_lon = 4;
+  double target_alt_m = 5;
+  uint64 timestamp = 6;
+}
+
+enum CommandType {
+  GOTO = 0;
+  HOVER = 1;
+  LAND = 2;
+  RETURN_HOME = 3;
+}
