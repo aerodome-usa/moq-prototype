@@ -1,6 +1,9 @@
 use std::io::Result;
 
 fn main() -> Result<()> {
-    prost_build::compile_protos(&["proto/telemetry.proto", "proto/drone.proto"], &["proto/"])?;
+    tonic_prost_build::configure()
+        .build_server(true)
+        .build_client(true)
+        .compile_protos(&["proto/drone.proto", "proto/telemetry.proto"], &["proto/"])?;
     Ok(())
 }

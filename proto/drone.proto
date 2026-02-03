@@ -30,3 +30,24 @@ enum CommandType {
   LAND = 2;
   RETURN_HOME = 3;
 }
+
+// Wrapper for bidirectional streaming between MoQ bridge and gRPC service
+message DroneMessage {
+  oneof payload {
+    DronePosition position = 1;
+    DroneCommand command = 2;
+  }
+}
+
+message CommandAck {
+  bool accepted = 1;
+  string message = 2;
+}
+
+service DroneService {
+  // Inbound: telemetry from MoQ bridge
+  // Outbound: commands to MoQ bridge
+  rpc DroneSession(stream DroneMessage) returns (stream DroneMessage);
+
+  rpc SendCommand(DroneCommand) returns (CommandAck);
+}
