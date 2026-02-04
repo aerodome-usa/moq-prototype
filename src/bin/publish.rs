@@ -11,9 +11,6 @@ pub mod telemetry {
     include!(concat!(env!("OUT_DIR"), "/telemetry.rs"));
 }
 
-// TODO: try and use moq_native
-// update: moq_native is shit
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let url = std::env::var("RELAY_URL").unwrap_or_else(|_| "https://localhost:4443".to_string());

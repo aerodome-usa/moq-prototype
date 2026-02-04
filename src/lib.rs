@@ -1,5 +1,6 @@
 pub mod drone;
 pub mod grpc;
+pub mod rpcmoq_lite;
 pub mod state_machine;
 pub mod unit;
 pub mod unit_context;
