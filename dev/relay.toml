@@ -8,7 +8,7 @@ listen = "[::]:4443"
 tls.generate = ["localhost"]
 
 [web.http]
-listen = "[::]:8080"
+listen = "[::]:4321"
 
 [auth]
 public = ""

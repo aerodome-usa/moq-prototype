@@ -18,13 +18,13 @@ pub mod drone_proto {
 /// Broadcast path for a drone's outbound telemetry.
 /// Published by the drone, subscribed to by the server.
 pub fn drone_broadcast_path(drone_id: &str) -> String {
-    format!("drone/{drone_id}")
+    format!("drone/{drone_id}/drone.EchoService/Echo")
 }
 
 /// Broadcast path for echoed positions sent to a drone.
 /// Published by the server, subscribed to by the drone.
 pub fn echo_broadcast_path(drone_id: &str) -> String {
-    format!("server/{drone_id}")
+    format!("server/{drone_id}/drone.EchoService/Echo")
 }
 
 pub const PRIMARY_TRACK: &str = "primary";

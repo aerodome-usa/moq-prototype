@@ -2,9 +2,9 @@ use anyhow::{Result, anyhow};
 use moq_lite::{
     BroadcastConsumer, BroadcastProducer, OriginConsumer, Track, TrackConsumer, TrackProducer,
 };
-use moq_prototype::PRIMARY_TRACK;
 use moq_prototype::drone_proto::DronePosition;
-use moq_prototype::{connect_bidirectional, drone_broadcast_path, echo_broadcast_path};
+use moq_prototype::{PRIMARY_TRACK, echo_broadcast_path};
+use moq_prototype::{connect_bidirectional, drone_broadcast_path};
 use prost::Message;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
