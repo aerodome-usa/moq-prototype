@@ -8,36 +8,12 @@ use tracing::{debug, info, warn};
 
 use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
 use crate::rpcmoq_lite::error::RpcError;
-use crate::rpcmoq_lite::handler::{
+use crate::rpcmoq_lite::path::RpcRequestPath;
+use crate::rpcmoq_lite::server::config::RpcRouterConfig;
+use crate::rpcmoq_lite::server::handler::{
     ConnectionGuard, DecodedInbound, ErasedHandler, TypedHandler, make_connector,
 };
-use crate::rpcmoq_lite::path::RpcRequestPath;
-use crate::rpcmoq_lite::session::{SessionKey, SessionMap};
-
-/// Configuration for the RPC router.
-#[derive(Debug, Clone)]
-pub struct RpcRouterConfig {
-    /// Prefix for client announcements (e.g., "drone").
-    /// The router listens for announcements under this prefix.
-    pub client_prefix: String,
-
-    /// Prefix for server responses (e.g., "server").
-    /// Responses are published at `{response_prefix}/{client_id}/{grpc_path}`.
-    pub response_prefix: String,
-
-    /// Track name for RPC messages (e.g., "primary").
-    pub track_name: String,
-}
-
-impl Default for RpcRouterConfig {
-    fn default() -> Self {
-        Self {
-            client_prefix: "client".to_string(),
-            response_prefix: "server".to_string(),
-            track_name: "primary".to_string(),
-        }
-    }
-}
+use crate::rpcmoq_lite::server::session::{SessionKey, SessionMap};
 
 /// The main RPC router that manages connections and dispatches to handlers.
 pub struct RpcRouter {
@@ -68,19 +44,19 @@ impl RpcRouter {
     ///
     /// # Example
     /// ```ignore
-    /// router.register::<DronePosition, DronePosition>(
+    /// router.register::<DronePosition, DronePosition, _, _, _>(
     ///     "drone.EchoService/Echo",
     ///     |client_id, inbound| async move {
     ///         let mut client = EchoServiceClient::connect(GRPC_ADDR).await
     ///             .map_err(|e| tonic::Status::internal(e.to_string()))?;
-    ///         let response = client.echo(inbound).await?;
+    ///         let response = client.echo(inbound.into_ok_stream()).await?;
     ///         Ok(response.into_inner())
     ///     },
     /// )?;
     /// ```
     pub fn register<Req, Resp, F, Fut, S>(
         &mut self,
-        grpc_path: String,
+        grpc_path: impl Into<String>,
         connector: F,
     ) -> Result<(), RpcError>
     where
@@ -90,11 +66,12 @@ impl RpcRouter {
         Fut: Future<Output = Result<S, Status>> + Send + 'static,
         S: Stream<Item = Result<Resp, Status>> + Send + 'static,
     {
+        let grpc_path = grpc_path.into();
         let boxed_connector = make_connector(connector);
         let handler = TypedHandler::<Req, Resp>::new(boxed_connector);
         self.handlers.insert(grpc_path.clone(), Arc::new(handler));
 
-        info!(grpc_path = %grpc_path.clone(), "Registered RPC handler");
+        info!(grpc_path = %grpc_path, "Registered RPC handler");
         Ok(())
     }
 
@@ -144,7 +121,6 @@ impl RpcRouter {
         path: &str,
         broadcast: BroadcastConsumer,
     ) -> Result<(), RpcError> {
-        // Parse the path
         let request_path = RpcRequestPath::parse(path)?;
         let client_id = request_path.client_id.clone();
         let grpc_path = request_path.grpc_path.full_path();

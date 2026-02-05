@@ -1,12 +1,13 @@
 use anyhow::Result;
-use futures::StreamExt;
+use futures::StreamExt as _;
+use moq_prototype::PRIMARY_TRACK;
+use moq_prototype::connect_bidirectional;
 use moq_prototype::drone::DroneSessionMap;
 use moq_prototype::drone_proto::DronePosition;
 use moq_prototype::grpc::{self, EchoServiceClient};
-use moq_prototype::rpcmoq_lite::RpcRouterConfig;
+use moq_prototype::rpcmoq_lite::{RpcRouter, RpcRouterConfig};
 use moq_prototype::unit_context::UnitContext;
 use moq_prototype::unit_map::UnitMap;
-use moq_prototype::{PRIMARY_TRACK, connect_bidirectional, rpcmoq_lite};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -46,10 +47,10 @@ async fn main() -> Result<()> {
         track_name: String::from(PRIMARY_TRACK),
     };
 
-    let mut router = rpcmoq_lite::RpcRouter::new(consumer.clone(), producer.clone(), config);
+    let mut router = RpcRouter::new(consumer.clone(), producer.clone(), config);
 
     router.register::<DronePosition, DronePosition, _, _, _>(
-        String::from("drone.EchoService/Echo"),
+        "drone.EchoService/Echo",
         |_, inbound| async move {
             let inbound = inbound.filter_map(|s| async move { s.ok() });
             let mut client = EchoServiceClient::connect(GRPC_CLIENT_ADDR)

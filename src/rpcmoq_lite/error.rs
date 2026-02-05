@@ -32,6 +32,15 @@ pub enum RpcError {
 
     /// gRPC connection or call failed.
     Grpc(tonic::Status),
+
+    /// Timeout waiting for server response broadcast.
+    Timeout,
+
+    /// Server broadcast not found at expected path.
+    ServerNotFound(String),
+
+    /// The RPC connection was closed.
+    ConnectionClosed,
 }
 
 impl fmt::Display for RpcError {
@@ -52,6 +61,11 @@ impl fmt::Display for RpcError {
             RpcError::HandlerPanic => write!(f, "handler panicked"),
             RpcError::NoHandler(path) => write!(f, "no handler registered for '{path}'"),
             RpcError::Grpc(status) => write!(f, "gRPC error: {status}"),
+            RpcError::Timeout => write!(f, "timeout waiting for server response broadcast"),
+            RpcError::ServerNotFound(path) => {
+                write!(f, "server broadcast not found at path: {path}")
+            }
+            RpcError::ConnectionClosed => write!(f, "RPC connection closed"),
         }
     }
 }

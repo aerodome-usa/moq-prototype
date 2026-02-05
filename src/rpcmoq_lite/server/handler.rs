@@ -1,4 +1,4 @@
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use moq_lite::BroadcastProducer;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use tonic::Status;
 
 use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::session::SessionGuard;
+use crate::rpcmoq_lite::server::session::SessionGuard;
 
 /// A type-erased handler that can be stored in a HashMap.
 ///
@@ -40,6 +40,28 @@ impl<Req> DecodedInbound<Req> {
             inner,
             _marker: PhantomData,
         }
+    }
+
+    /// Convert to a stream that filters out errors (for use with gRPC clients).
+    ///
+    /// This is a convenience method that removes the need for manual `filter_map`
+    /// when passing the stream to a gRPC client that expects `impl Stream<Item = Req>`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Before:
+    /// let inbound = inbound.filter_map(|s| async move { s.ok() });
+    /// let response = client.echo(inbound).await?;
+    ///
+    /// // After:
+    /// let response = client.echo(inbound.into_ok_stream()).await?;
+    /// ```
+    pub fn into_ok_stream(self) -> impl Stream<Item = Req>
+    where
+        Req: prost::Message + Default,
+    {
+        self.filter_map(|result| async move { result.ok() })
     }
 }
 
@@ -123,8 +145,6 @@ where
         outbound: RpcOutbound,
         connection_guard: ConnectionGuard,
     ) {
-        use futures::StreamExt;
-
         let connector = Arc::clone(&self.connector);
         let grpc_path = connection_guard.session_guard.grpc_path().to_string();
 
