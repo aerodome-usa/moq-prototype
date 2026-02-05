@@ -5,6 +5,7 @@ use moq_prototype::connect_bidirectional;
 use moq_prototype::drone::DroneSessionMap;
 use moq_prototype::drone_proto::DronePosition;
 use moq_prototype::grpc::{self, EchoServiceClient};
+use moq_prototype::rpcmoq_lite::DecodedInbound;
 use moq_prototype::rpcmoq_lite::{RpcRouter, RpcRouterConfig};
 use moq_prototype::unit_context::UnitContext;
 use moq_prototype::unit_map::UnitMap;
@@ -49,9 +50,9 @@ async fn main() -> Result<()> {
 
     let mut router = RpcRouter::new(consumer.clone(), producer.clone(), config);
 
-    router.register::<DronePosition, DronePosition, _, _, _>(
+    router.register(
         "drone.EchoService/Echo",
-        |_, inbound| async move {
+        |_, inbound: DecodedInbound<DronePosition>| async move {
             let inbound = inbound.filter_map(|s| async move { s.ok() });
             let mut client = EchoServiceClient::connect(GRPC_CLIENT_ADDR)
                 .await

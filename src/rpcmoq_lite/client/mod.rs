@@ -28,10 +28,10 @@
 //! let (sender, receiver) = conn.split();
 //! ```
 
-mod client;
 mod config;
 mod connection;
+mod rpc_client;
 
-pub use client::RpcClient;
 pub use config::RpcClientConfig;
 pub use connection::{RpcConnection, RpcReceiver, RpcSender};
+pub use rpc_client::RpcClient;
