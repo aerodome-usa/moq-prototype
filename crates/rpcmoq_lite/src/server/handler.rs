@@ -7,9 +7,9 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tonic::Status;
 
-use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::RpcWireError;
-use crate::rpcmoq_lite::server::session::SessionGuard;
+use crate::connection::{RpcInbound, RpcOutbound};
+use crate::error::RpcWireError;
+use crate::server::session::SessionGuard;
 
 /// A type-erased handler that can be stored in a HashMap.
 ///
@@ -64,13 +64,6 @@ where
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.as_mut().get_mut();
         match Pin::new(&mut this.inner).poll_next(cx) {
-            // Poll::Ready(Some(Ok(bytes))) => Poll::Ready(Some(match Req::decode(bytes).map_err(|e| {
-            //     let status = Status::invalid_argument(format!("failed to decode request: {e}"));
-            //     if let Some(handler) = &this.on_decode_error {
-            //         handler();
-            //     }
-            //     status
-            // }))),
             Poll::Ready(Some(Ok(bytes))) => match Req::decode(bytes) {
                 Ok(msg) => Poll::Ready(Some(msg)),
                 // stop the stream, close the connection if we cannot decode the

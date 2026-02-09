@@ -5,7 +5,7 @@ use moq_lite::{BroadcastConsumer, Error as MoqError, Track, TrackConsumer, Track
 use prost::Message;
 use std::pin::Pin;
 
-use crate::rpcmoq_lite::error::RpcSendError;
+use crate::error::RpcSendError;
 
 /// A stream of raw bytes from a MoQ track.
 ///

@@ -6,14 +6,14 @@ use std::sync::Arc;
 use tonic::Status;
 use tracing::{debug, info, warn};
 
-use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::{RpcServerError, RpcWireError};
-use crate::rpcmoq_lite::path::RpcRequestPath;
-use crate::rpcmoq_lite::server::config::RpcRouterConfig;
-use crate::rpcmoq_lite::server::handler::{
+use crate::connection::{RpcInbound, RpcOutbound};
+use crate::error::{RpcServerError, RpcWireError};
+use crate::path::RpcRequestPath;
+use crate::server::config::RpcRouterConfig;
+use crate::server::handler::{
     ConnectionGuard, DecodedInbound, ErasedHandler, TypedHandler, make_connector,
 };
-use crate::rpcmoq_lite::server::session::{SessionKey, SessionMap};
+use crate::server::session::{SessionKey, SessionMap};
 
 /// The main RPC router that manages connections and dispatches to handlers.
 pub struct RpcRouter {

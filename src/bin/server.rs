@@ -4,10 +4,10 @@ use moq_prototype::connect_bidirectional;
 use moq_prototype::drone::DroneSessionMap;
 use moq_prototype::drone_proto::DronePosition;
 use moq_prototype::grpc::{self, EchoServiceClient};
-use moq_prototype::rpcmoq_lite::DecodedInbound;
-use moq_prototype::rpcmoq_lite::{RpcRouter, RpcRouterConfig};
 use moq_prototype::unit_context::UnitContext;
 use moq_prototype::unit_map::UnitMap;
+use rpcmoq_lite::DecodedInbound;
+use rpcmoq_lite::{RpcRouter, RpcRouterConfig};
 use std::sync::Arc;
 use tracing::{error, info};
 

@@ -2,7 +2,7 @@ use dashmap::DashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::rpcmoq_lite::error::RpcServerError;
+use crate::error::RpcServerError;
 
 /// A composite key for session tracking: (client_id, grpc_path).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

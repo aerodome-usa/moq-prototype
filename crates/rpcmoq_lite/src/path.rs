@@ -1,4 +1,4 @@
-use crate::rpcmoq_lite::error::RpcPathError;
+use crate::error::RpcPathError;
 
 /// A parsed RPC request path: `{client_id}/{grpc_path}`
 ///

@@ -3,10 +3,10 @@ use prost::Message;
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use crate::rpcmoq_lite::client::config::RpcClientConfig;
-use crate::rpcmoq_lite::client::connection::RpcConnection;
-use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::RpcClientError;
+use crate::client::config::RpcClientConfig;
+use crate::client::connection::RpcConnection;
+use crate::connection::{RpcInbound, RpcOutbound};
+use crate::error::RpcClientError;
 
 /// An RPC client that connects to a server over MoQ.
 ///

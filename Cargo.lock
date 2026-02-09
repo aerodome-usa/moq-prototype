@@ -1001,19 +1001,15 @@ dependencies = [
  "ahash",
  "anyhow",
  "async-stream",
- "bon",
- "bytes",
  "dashmap",
  "futures",
- "futures-util",
  "impl-trait-for-tuples",
  "moq-lite",
  "prost",
  "prost-build",
- "rand",
+ "rpcmoq_lite",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tonic",
  "tonic-build",
  "tonic-prost",
@@ -1443,6 +1439,24 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rpcmoq_lite"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "async-stream",
+ "bon",
+ "bytes",
+ "dashmap",
+ "futures",
+ "moq-lite",
+ "prost",
+ "thiserror 2.0.18",
+ "tokio",
+ "tonic",
+ "tracing",
 ]
 
 [[package]]

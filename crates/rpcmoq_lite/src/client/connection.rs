@@ -6,8 +6,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::{RpcSendError, RpcWireError};
+use crate::connection::{RpcInbound, RpcOutbound};
+use crate::error::{RpcSendError, RpcWireError};
 
 /// A bidirectional RPC connection.
 ///

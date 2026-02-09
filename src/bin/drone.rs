@@ -3,7 +3,7 @@ use futures::{SinkExt, StreamExt};
 use moq_prototype::PRIMARY_TRACK;
 use moq_prototype::connect_bidirectional;
 use moq_prototype::drone_proto::DronePosition;
-use moq_prototype::rpcmoq_lite::{RpcClient, RpcClientConfig};
+use rpcmoq_lite::{RpcClient, RpcClientConfig};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
@@ -26,7 +26,6 @@ async fn main() -> Result<()> {
 
     let config = RpcClientConfig::builder()
         .client_id(drone_id.clone())
-        // TODO: Remove prefix shit
         .client_prefix("drone".to_string())
         .server_prefix("server".to_string())
         .track_name(PRIMARY_TRACK.to_string())
@@ -42,9 +41,6 @@ async fn main() -> Result<()> {
     info!(drone_id = %drone_id, "Drone is online");
 
     let (mut sender, mut receiver) = conn.split();
-
-    // TODO: Figure out how to handle errors in the case that a bad Protobuf
-    // was sent
 
     // Spawn a task to send position updates
     let send_drone_id = drone_id.clone();

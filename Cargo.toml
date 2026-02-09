@@ -3,23 +3,23 @@ name = "moq-prototype"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[workspace]
+members = ["crates/rpcmoq_lite"]
+
+[workspace.dependencies]
 ahash = "0.8.12"
 anyhow = "1.0.100"
 async-stream = "0.3.6"
-bon = "3.8.2"
-bytes = "1.11.0"
 dashmap = "6.1.0"
 futures = "0.3.31"
-futures-util = "0.3.31"
 impl-trait-for-tuples = "0.2.3"
 moq-lite = "0.12.0"
 prost = "0.14.3"
-rand = "0.9"
+prost-build = "0.14.3"
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }
-tokio-stream = "0.1.18"
 tonic = "0.14.3"
+tonic-build = "0.14.3"
 tonic-prost = "0.14.3"
 tonic-prost-build = "0.14.3"
 tracing = "0.1.44"
@@ -28,7 +28,31 @@ url = "2.5.8"
 uuid = { version = "1.20.0", features = ["v4"] }
 web-transport-quinn = "0.11.0"
 
+# crates
+rpcmoq_lite = { path = "crates/rpcmoq_lite" }
+
+[dependencies]
+ahash = { workspace = true }
+anyhow = { workspace = true }
+async-stream = { workspace = true }
+dashmap = { workspace = true }
+futures = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+moq-lite = { workspace = true }
+prost = { workspace = true }
+rpcmoq_lite = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+tonic-prost-build = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+web-transport-quinn = { workspace = true }
+
 [build-dependencies]
-prost-build = "0.14.3"
-tonic-build = "0.14.3"
-tonic-prost-build = "0.14.3"
+prost-build = { workspace = true }
+tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
