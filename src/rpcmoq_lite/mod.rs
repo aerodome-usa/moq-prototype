@@ -85,7 +85,7 @@ pub mod server;
 
 // Re-export shared types
 pub use connection::{RpcInbound, RpcOutbound};
-pub use error::RpcError;
+pub use error::{RpcClientError, RpcPathError, RpcSendError, RpcServerError, RpcWireError};
 pub use path::{GrpcPath, RpcRequestPath};
 
 // Convenience re-exports for common use

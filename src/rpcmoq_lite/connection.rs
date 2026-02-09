@@ -1,18 +1,17 @@
 use async_stream::stream;
 use bytes::Bytes;
 use futures::Stream;
-use moq_lite::{BroadcastConsumer, Track, TrackConsumer, TrackProducer};
+use moq_lite::{BroadcastConsumer, Error as MoqError, Track, TrackConsumer, TrackProducer};
 use prost::Message;
 use std::pin::Pin;
-use tonic::Status;
 
-use crate::rpcmoq_lite::error::RpcError;
+use crate::rpcmoq_lite::error::RpcSendError;
 
 /// A stream of raw bytes from a MoQ track.
 ///
 /// This wraps a `TrackConsumer` and yields frames as `Bytes`.
 pub struct RpcInbound {
-    inner: Pin<Box<dyn Stream<Item = Result<Bytes, Status>> + Send>>,
+    inner: Pin<Box<dyn Stream<Item = Result<Bytes, moq_lite::Error>> + Send>>,
 }
 
 impl RpcInbound {
@@ -37,7 +36,7 @@ impl RpcInbound {
                         break;
                     }
                     Err(e) => {
-                        yield Err(Status::internal(format!("MoQ error: {e}")));
+                        yield Err(e);
                         break;
                     }
                 }
@@ -51,7 +50,7 @@ impl RpcInbound {
 }
 
 impl Stream for RpcInbound {
-    type Item = Result<Bytes, Status>;
+    type Item = Result<Bytes, moq_lite::Error>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -62,6 +61,7 @@ impl Stream for RpcInbound {
 }
 
 /// A sink for sending responses back to a MoQ track.
+#[derive(Clone)]
 pub struct RpcOutbound {
     track: TrackProducer,
 }
@@ -73,7 +73,7 @@ impl RpcOutbound {
     }
 
     /// Send a protobuf message.
-    pub fn send<M: Message>(&mut self, msg: &M) -> Result<(), RpcError> {
+    pub fn send<M: Message>(&mut self, msg: &M) -> Result<(), RpcSendError> {
         let mut buf = Vec::with_capacity(msg.encoded_len());
         msg.encode(&mut buf)?;
         self.send_raw(buf);
@@ -83,5 +83,10 @@ impl RpcOutbound {
     /// Send raw bytes.
     pub fn send_raw(&mut self, bytes: impl Into<Bytes>) {
         self.track.write_frame(bytes.into());
+    }
+
+    /// Abort the underlying track with an application error code.
+    pub fn abort_app(&self, code: u32) {
+        self.track.clone().abort(MoqError::App(code));
     }
 }

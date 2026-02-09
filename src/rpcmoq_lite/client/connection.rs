@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::RpcError;
+use crate::rpcmoq_lite::error::{RpcSendError, RpcWireError};
 
 /// A bidirectional RPC connection.
 ///
@@ -63,7 +63,7 @@ impl<Req, Resp> Stream for RpcConnection<Req, Resp>
 where
     Resp: Message + Default,
 {
-    type Item = Result<Resp, RpcError>;
+    type Item = Result<Resp, RpcWireError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Pin::new(&mut self.receiver).poll_next(cx)
@@ -74,7 +74,7 @@ impl<Req, Resp> Sink<Req> for RpcConnection<Req, Resp>
 where
     Req: Message,
 {
-    type Error = RpcError;
+    type Error = RpcSendError;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Pin::new(&mut self.sender).poll_ready(cx)
@@ -118,7 +118,7 @@ impl<Req> Sink<Req> for RpcSender<Req>
 where
     Req: Message,
 {
-    type Error = RpcError;
+    type Error = RpcSendError;
 
     fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // MoQ tracks are always ready to accept writes
@@ -166,15 +166,15 @@ impl<Resp> Stream for RpcReceiver<Resp>
 where
     Resp: Message + Default,
 {
-    type Item = Result<Resp, RpcError>;
+    type Item = Result<Resp, RpcWireError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match Pin::new(&mut self.inbound).poll_next(cx) {
             Poll::Ready(Some(Ok(bytes))) => match Resp::decode(bytes) {
                 Ok(msg) => Poll::Ready(Some(Ok(msg))),
-                Err(e) => Poll::Ready(Some(Err(RpcError::Decode(e)))),
+                Err(_) => Poll::Ready(Some(Err(RpcWireError::Decode))),
             },
-            Poll::Ready(Some(Err(status))) => Poll::Ready(Some(Err(RpcError::Grpc(status)))),
+            Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(RpcWireError::from(err)))),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
         }

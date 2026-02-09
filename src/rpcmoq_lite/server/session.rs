@@ -2,7 +2,7 @@ use dashmap::DashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::rpcmoq_lite::error::RpcError;
+use crate::rpcmoq_lite::error::RpcServerError;
 
 /// A composite key for session tracking: (client_id, grpc_path).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -46,11 +46,11 @@ impl SessionMap {
     /// Try to create a new session. Returns a guard that removes the session on drop.
     ///
     /// Returns an error if a session already exists for this key.
-    pub fn try_create(self: &Arc<Self>, key: SessionKey) -> Result<SessionGuard, RpcError> {
+    pub fn try_create(self: &Arc<Self>, key: SessionKey) -> Result<SessionGuard, RpcServerError> {
         use dashmap::mapref::entry::Entry;
 
         match self.sessions.entry(key.clone()) {
-            Entry::Occupied(_) => Err(RpcError::SessionAlreadyActive {
+            Entry::Occupied(_) => Err(RpcServerError::SessionAlreadyActive {
                 client_id: key.client_id,
                 grpc_path: key.grpc_path,
             }),
@@ -154,7 +154,10 @@ mod tests {
         let _guard = map.try_create(key.clone()).unwrap();
 
         let result = map.try_create(key);
-        assert!(matches!(result, Err(RpcError::SessionAlreadyActive { .. })));
+        assert!(matches!(
+            result,
+            Err(RpcServerError::SessionAlreadyActive { .. })
+        ));
     }
 
     #[test]

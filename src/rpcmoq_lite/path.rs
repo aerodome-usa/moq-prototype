@@ -1,4 +1,4 @@
-use crate::rpcmoq_lite::error::RpcError;
+use crate::rpcmoq_lite::error::RpcPathError;
 
 /// A parsed RPC request path: `{client_id}/{grpc_path}`
 ///
@@ -16,13 +16,13 @@ impl RpcRequestPath {
     ///
     /// Expected format: `{client_id}/{package}.{service}/{method}`
     /// The client_id can contain slashes, so we split from the right.
-    pub fn parse(path: &str) -> Result<Self, RpcError> {
+    pub fn parse(path: &str) -> Result<Self, RpcPathError> {
         let path = path.strip_prefix('/').unwrap_or(path);
 
         // Split on '/' and work backwards to find the service/method boundary
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() < 2 {
-            return Err(RpcError::PathParse(format!(
+            return Err(RpcPathError::Invalid(format!(
                 "path must have at least client_id and grpc_path: '{path}'"
             )));
         }
@@ -33,7 +33,7 @@ impl RpcRequestPath {
         // The service (with package) is the second-to-last part, and must contain a '.'
         let service_part = parts[parts.len() - 2];
         if !service_part.contains('.') {
-            return Err(RpcError::PathParse(format!(
+            return Err(RpcPathError::Invalid(format!(
                 "service part must contain package.service: '{service_part}'"
             )));
         }
@@ -42,7 +42,7 @@ impl RpcRequestPath {
         let client_id = if parts.len() > 2 {
             parts[..parts.len() - 2].join("/")
         } else {
-            return Err(RpcError::PathParse(format!(
+            return Err(RpcPathError::Invalid(format!(
                 "path must include client_id before grpc path: '{path}'"
             )));
         };
@@ -73,21 +73,21 @@ impl GrpcPath {
     /// Parse a gRPC path string.
     ///
     /// Expected format: `{package}.{service}/{method}`
-    pub fn parse(path: &str) -> Result<Self, RpcError> {
+    pub fn parse(path: &str) -> Result<Self, RpcPathError> {
         let path = path.strip_prefix('/').unwrap_or(path);
 
         let (service_path, method) = path
             .rsplit_once('/')
-            .ok_or_else(|| RpcError::PathParse(format!("gRPC path must contain '/': '{path}'")))?;
+            .ok_or_else(|| RpcPathError::Invalid(format!("gRPC path must contain '/': '{path}'")))?;
 
         let (package, service) = service_path.rsplit_once('.').ok_or_else(|| {
-            RpcError::PathParse(format!(
+            RpcPathError::Invalid(format!(
                 "service path must contain package.service: '{service_path}'"
             ))
         })?;
 
         if package.is_empty() || service.is_empty() || method.is_empty() {
-            return Err(RpcError::PathParse(format!(
+            return Err(RpcPathError::Invalid(format!(
                 "package, service, and method must all be non-empty: '{path}'"
             )));
         }

@@ -7,7 +7,7 @@ use tonic::Status;
 use tracing::{debug, info, warn};
 
 use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::RpcError;
+use crate::rpcmoq_lite::error::{RpcServerError, RpcWireError};
 use crate::rpcmoq_lite::path::RpcRequestPath;
 use crate::rpcmoq_lite::server::config::RpcRouterConfig;
 use crate::rpcmoq_lite::server::handler::{
@@ -58,7 +58,7 @@ impl RpcRouter {
         &mut self,
         grpc_path: impl Into<String>,
         connector: F,
-    ) -> Result<(), RpcError>
+    ) -> Result<(), RpcServerError>
     where
         Req: prost::Message + Default + Send + 'static,
         Resp: prost::Message + Send + 'static,
@@ -79,7 +79,7 @@ impl RpcRouter {
     ///
     /// This method consumes the router and runs until the consumer is closed
     /// or a fatal error occurs. Handler tasks continue to run independently.
-    pub async fn run(self) -> Result<(), RpcError> {
+    pub async fn run(self) -> Result<(), RpcServerError> {
         // Extract fields we need before consuming consumer
         let producer = self.producer;
         let sessions = self.sessions;
@@ -88,7 +88,7 @@ impl RpcRouter {
 
         let mut announcements = match &config.client_prefix {
             Some(prefix) => self.consumer.with_root(prefix).ok_or_else(|| {
-                RpcError::Unauthorized(format!("prefix '{prefix}' not authorized"))
+                RpcServerError::Unauthorized(format!("prefix '{prefix}' not authorized"))
             })?,
             None => self.consumer,
         };
@@ -104,9 +104,9 @@ impl RpcRouter {
                     let path_str = path.to_string();
                     debug!(path = %path_str, "Received announcement");
 
-                    if let Err(e) =
-                        Self::handle_announcement(&producer, &sessions, &handlers, &config, &path_str, broadcast)
-                    {
+                    if let Err(e) = Self::handle_announcement(
+                        &producer, &sessions, &handlers, &config, &path_str, broadcast,
+                    ) {
                         warn!(path = %path_str, error = %e, "Failed to handle announcement");
                     }
                 }
@@ -134,10 +134,26 @@ impl RpcRouter {
         config: &RpcRouterConfig,
         path: &str,
         broadcast: BroadcastConsumer,
-    ) -> Result<(), RpcError> {
-        let request_path = RpcRequestPath::parse(path)?;
-        let client_id = request_path.client_id.clone();
-        let grpc_path = request_path.grpc_path.full_path();
+    ) -> Result<(), RpcServerError> {
+        let (client_id, grpc_path) = match RpcRequestPath::parse(path) {
+            Ok(request_path) => (
+                request_path.client_id.clone(),
+                request_path.grpc_path.full_path(),
+            ),
+            Err(e) => return Err(e.into()),
+        };
+
+        // Create the response broadcast early so we can surface errors like "no handler".
+        let response_path = config.response_path(&client_id, &grpc_path);
+        let mut response_broadcast =
+            producer.create_broadcast(&response_path).ok_or_else(|| {
+                RpcServerError::BroadcastCreate(format!(
+                    "failed to create response broadcast at '{response_path}'"
+                ))
+            })?;
+
+        let outbound_track = response_broadcast.create_track(Track::new(&config.track_name));
+        let outbound = RpcOutbound::new(outbound_track);
 
         let handler = handlers.get(&grpc_path).ok_or_else(|| {
             warn!(
@@ -145,24 +161,21 @@ impl RpcRouter {
                 grpc_path = %grpc_path,
                 "No handler registered for gRPC path"
             );
-            RpcError::NoHandler(grpc_path.clone())
+            outbound.abort_app(RpcWireError::NoHandler.to_code());
+            RpcServerError::NoHandler(grpc_path.clone())
         })?;
 
         // Try to create a session (prevents duplicate connections)
         let session_key = SessionKey::new(&client_id, &grpc_path);
-        let session_guard = sessions.try_create(session_key)?;
-
-        // Create the response broadcast
-        let response_path = config.response_path(&client_id, &grpc_path);
-        let mut response_broadcast = producer.create_broadcast(&response_path).ok_or_else(|| {
-            RpcError::BroadcastCreate(format!(
-                "failed to create response broadcast at '{response_path}'"
-            ))
-        })?;
-
+        let session_guard = match sessions.try_create(session_key) {
+            Ok(guard) => guard,
+            Err(e @ RpcServerError::SessionAlreadyActive { .. }) => {
+                outbound.abort_app(RpcWireError::SessionAlreadyActive.to_code());
+                return Err(e);
+            }
+            Err(e) => return Err(e),
+        };
         let inbound = RpcInbound::new(&broadcast, &config.track_name);
-        let outbound_track = response_broadcast.create_track(Track::new(&config.track_name));
-        let outbound = RpcOutbound::new(outbound_track);
 
         info!(
             client_id = %client_id,

@@ -8,6 +8,7 @@ use std::task::{Context, Poll};
 use tonic::Status;
 
 use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
+use crate::rpcmoq_lite::error::RpcWireError;
 use crate::rpcmoq_lite::server::session::SessionGuard;
 
 /// A type-erased handler that can be stored in a HashMap.
@@ -31,6 +32,7 @@ pub(crate) trait ErasedHandler: Send + Sync {
 /// A concrete typed inbound stream that decodes protobuf messages from `RpcInbound`.
 pub struct DecodedInbound<Req> {
     inner: RpcInbound,
+    on_decode_error: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
     _marker: PhantomData<fn() -> Req>,
 }
 
@@ -38,30 +40,18 @@ impl<Req> DecodedInbound<Req> {
     pub fn new(inner: RpcInbound) -> Self {
         Self {
             inner,
+            on_decode_error: None,
             _marker: PhantomData,
         }
     }
 
-    /// Convert to a stream that filters out errors (for use with gRPC clients).
-    ///
-    /// This is a convenience method that removes the need for manual `filter_map`
-    /// when passing the stream to a gRPC client that expects `impl Stream<Item = Req>`.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// // Before:
-    /// let inbound = inbound.filter_map(|s| async move { s.ok() });
-    /// let response = client.echo(inbound).await?;
-    ///
-    /// // After:
-    /// let response = client.echo(inbound.into_ok_stream()).await?;
-    /// ```
-    pub fn into_ok_stream(self) -> impl Stream<Item = Req>
+    /// Attach a callback that runs when a decode error occurs.
+    pub fn with_decode_error_handler<F>(mut self, f: F) -> Self
     where
-        Req: prost::Message + Default,
+        F: Fn() + Send + Sync + 'static,
     {
-        self.filter_map(|result| async move { result.ok() })
+        self.on_decode_error = Some(std::sync::Arc::new(f));
+        self
     }
 }
 
@@ -69,17 +59,34 @@ impl<Req> Stream for DecodedInbound<Req>
 where
     Req: prost::Message + Default,
 {
-    type Item = Result<Req, Status>;
+    type Item = Req;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.as_mut().get_mut();
         match Pin::new(&mut this.inner).poll_next(cx) {
-            Poll::Ready(Some(Ok(bytes))) => {
-                Poll::Ready(Some(Req::decode(bytes).map_err(|e| {
-                    Status::invalid_argument(format!("failed to decode request: {e}"))
-                })))
+            // Poll::Ready(Some(Ok(bytes))) => Poll::Ready(Some(match Req::decode(bytes).map_err(|e| {
+            //     let status = Status::invalid_argument(format!("failed to decode request: {e}"));
+            //     if let Some(handler) = &this.on_decode_error {
+            //         handler();
+            //     }
+            //     status
+            // }))),
+            Poll::Ready(Some(Ok(bytes))) => match Req::decode(bytes) {
+                Ok(msg) => Poll::Ready(Some(msg)),
+                // stop the stream, close the connection if we cannot decode the
+                // message
+                Err(_) => {
+                    if let Some(handler) = &this.on_decode_error {
+                        handler();
+                    }
+                    Poll::Ready(None)
+                }
+            },
+            // if we got an error, close the connection
+            Poll::Ready(Some(Err(err))) => {
+                tracing::error!(%err, "Got an error from MoQ");
+                Poll::Ready(None)
             }
-            Poll::Ready(Some(Err(status))) => Poll::Ready(Some(Err(status))),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
         }
@@ -153,9 +160,22 @@ where
             let _guard = connection_guard;
 
             // Decode inbound bytes to typed messages with a concrete stream type.
-            let typed_inbound = DecodedInbound::<Req>::new(inbound);
+            let abort_outbound = outbound.clone();
+            let decode_client_id = client_id.clone();
+            let decode_grpc_path = grpc_path.clone();
+            let typed_inbound =
+                DecodedInbound::<Req>::new(inbound).with_decode_error_handler(move || {
+                    tracing::warn!(
+                        client_id = %decode_client_id,
+                        grpc_path = %decode_grpc_path,
+                        "Failed to decode request from client"
+                    );
+                    abort_outbound.abort_app(RpcWireError::Decode.to_code());
+                });
 
             // Call the connector to get the response stream
+            let mut outbound = outbound;
+
             let response_stream = match connector(client_id.clone(), typed_inbound).await {
                 Ok(stream) => stream,
                 Err(status) => {
@@ -165,13 +185,13 @@ where
                         error = %status,
                         "Connector failed to establish gRPC connection"
                     );
+                    outbound.abort_app(RpcWireError::Grpc.to_code());
                     return;
                 }
             };
 
             // Pipe responses back to MoQ
             let mut response_stream = response_stream;
-            let mut outbound = outbound;
 
             while let Some(result) = response_stream.next().await {
                 match result {
@@ -183,7 +203,8 @@ where
                                 error = %e,
                                 "Failed to send response to MoQ"
                             );
-                            break;
+                            outbound.abort_app(RpcWireError::Internal.to_code());
+                            return;
                         }
                     }
                     Err(status) => {
@@ -193,7 +214,8 @@ where
                             error = %status,
                             "gRPC response stream error"
                         );
-                        break;
+                        outbound.abort_app(RpcWireError::Grpc.to_code());
+                        return;
                     }
                 }
             }

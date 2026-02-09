@@ -6,7 +6,7 @@ use tracing::{debug, info};
 use crate::rpcmoq_lite::client::config::RpcClientConfig;
 use crate::rpcmoq_lite::client::connection::RpcConnection;
 use crate::rpcmoq_lite::connection::{RpcInbound, RpcOutbound};
-use crate::rpcmoq_lite::error::RpcError;
+use crate::rpcmoq_lite::error::RpcClientError;
 
 /// An RPC client that connects to a server over MoQ.
 ///
@@ -85,7 +85,7 @@ impl RpcClient {
     pub async fn connect<Req, Resp>(
         &mut self,
         grpc_path: impl Into<String>,
-    ) -> Result<RpcConnection<Req, Resp>, RpcError>
+    ) -> Result<RpcConnection<Req, Resp>, RpcClientError>
     where
         Req: Message + Default + Send + 'static,
         Resp: Message + Default + Send + 'static,
@@ -105,7 +105,7 @@ impl RpcClient {
             .producer
             .create_broadcast(&client_path)
             .ok_or_else(|| {
-                RpcError::BroadcastCreate(format!(
+                RpcClientError::BroadcastCreate(format!(
                     "failed to create client broadcast at '{client_path}'"
                 ))
             })?;
@@ -132,7 +132,10 @@ impl RpcClient {
     }
 
     /// Wait for the server to announce its response broadcast.
-    async fn wait_for_server(&mut self, server_path: &str) -> Result<BroadcastConsumer, RpcError> {
+    async fn wait_for_server(
+        &mut self,
+        server_path: &str,
+    ) -> Result<BroadcastConsumer, RpcClientError> {
         let timeout = self.config.timeout;
 
         debug!(
@@ -149,14 +152,14 @@ impl RpcClient {
                         return Ok(broadcast);
                     }
                     Some((path, None)) if path.as_str() == server_path => {
-                        return Err(RpcError::ServerNotFound(server_path.to_string()));
+                        return Err(RpcClientError::ServerNotFound(server_path.to_string()));
                     }
                     Some(_) => {
                         // Not our path, keep waiting
                         continue;
                     }
                     None => {
-                        return Err(RpcError::ConnectionClosed);
+                        return Err(RpcClientError::ConnectionClosed);
                     }
                 }
             }

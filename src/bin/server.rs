@@ -1,5 +1,4 @@
 use anyhow::Result;
-use futures::StreamExt as _;
 use moq_prototype::PRIMARY_TRACK;
 use moq_prototype::connect_bidirectional;
 use moq_prototype::drone::DroneSessionMap;
@@ -50,9 +49,7 @@ async fn main() -> Result<()> {
 
     router.register(
         "drone.EchoService/Echo",
-        // TODO: Remove result here
         |_, inbound: DecodedInbound<DronePosition>| async move {
-            let inbound = inbound.filter_map(|s| async move { s.ok() });
             let mut client = EchoServiceClient::connect(GRPC_CLIENT_ADDR)
                 .await
                 .inspect_err(|e| tracing::error!(?e))
