@@ -50,6 +50,7 @@ async fn main() -> Result<()> {
 
     router.register(
         "drone.EchoService/Echo",
+        // TODO: Remove result here
         |_, inbound: DecodedInbound<DronePosition>| async move {
             let inbound = inbound.filter_map(|s| async move { s.ok() });
             let mut client = EchoServiceClient::connect(GRPC_CLIENT_ADDR)
