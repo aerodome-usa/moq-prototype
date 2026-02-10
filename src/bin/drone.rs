@@ -26,6 +26,8 @@ async fn main() -> Result<()> {
 
     let config = RpcClientConfig::builder()
         .client_id(drone_id.clone())
+        // TODO: Convert to postfix
+        // TODO: Default to client and server
         .client_prefix("drone".to_string())
         .server_prefix("server".to_string())
         .track_name(PRIMARY_TRACK.to_string())

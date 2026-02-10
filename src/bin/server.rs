@@ -40,6 +40,8 @@ async fn main() -> Result<()> {
     let producer = Arc::new(producer);
 
     let config = RpcRouterConfig::builder()
+        // TODO: Convert to postfix
+        // TODO: Default to client and server
         .client_prefix("drone".to_string())
         .response_prefix("server".to_string())
         .track_name(PRIMARY_TRACK.to_string())
@@ -49,6 +51,9 @@ async fn main() -> Result<()> {
 
     router.register(
         "drone.EchoService/Echo",
+        // TODO: Wrap Grpc struct with something that looks similar to EchoServiceClient. This will
+        // be generic and no closure will be required here. The downside is you lose per service
+        // interceptors and have to do them globally. Maybe there is a way around this?
         |_, inbound: DecodedInbound<DronePosition>| async move {
             let mut client = EchoServiceClient::connect(GRPC_CLIENT_ADDR)
                 .await
